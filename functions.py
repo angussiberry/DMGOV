@@ -6,9 +6,6 @@ from io import StringIO
 import os
 import re
 
-# Replace with your OpenAI API key
-openai.api_key = "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"
-
 
 def extract_string(input_str):
     match = re.search(r"(.*?)\"\"\"", input_str)
