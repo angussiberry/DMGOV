@@ -14,36 +14,6 @@ def extract_string(input_str):
     else:
         return None
 
-
-def identify_elements(code, code_type):
-    if code_type == "spark":
-        functions = re.findall(r"spark\.(.*?)\(", code)
-        variables = re.findall(r"\${(.*?)}", code)
-        table_name = re.search(r"from (.*?)\n", code)
-        attributes = re.findall(r"\|([\w_]+),", code)
-    elif code_type == "scala":
-        functions = re.findall(r"(?<=def )\w+(?=\()", code)
-        variables = re.findall(r"(?<=val |var |def )(\w+)\s*[:=]", code)
-        if "var targetTableName = (TransactrionRetriever.deriveTablename" in code:
-            table_name = re.search(
-                r'var targetTableName = (TransactrionRetriever.deriveTablename\("[\w\s,]*"\))',
-                code,
-            )
-        elif "from" in code:
-            table_name = re.search(
-                r'from\("[\w\s,]*"\))',
-                code,
-            )
-        attributes = re.findall(r'(?<=col\(")(\w+)"\)', code)
-
-    table_name = table_name.group(1) if table_name else "N/A"
-
-    if '""".stripMargin)' in table_name:
-        table_name = extract_string(table_name)
-
-    return functions[0], ", ".join(variables), table_name, ", ".join(attributes)
-
-
 def get_answers(prompt):
     api_key = openai.api_key
 
@@ -80,26 +50,6 @@ def save_to_dict(prompt, response):
     return results
 
 
-def select_prompt(selected_option, selected_code_option):
-    if selected_option == "Test overview":
-        prompt = "Can you please take a minute describe testing processes for this code. please DO NOT write any code"
-    elif selected_option == "Unit test":
-        prompt = (
-            "Can you please write unit test for this code in" + selected_code_option
-        )
-    elif selected_option == "Validation":
-        prompt = (
-            "please write a validation test for this code with an example in "
-            + selected_code_option
-        )
-    elif selected_option == "Functional test":
-        prompt = (
-            "please write a functional test for this code in " + selected_code_option
-        )
-    else:
-        processed_text = "Invalid option selected"
-    return prompt
-
 
 # Function to make API call to OpenAI GPT-3.5 Turbo with source data
 def get_mapping(target_data, source_df_top_results, api_key):
@@ -121,31 +71,6 @@ def get_mapping(target_data, source_df_top_results, api_key):
         api_key=api_key,
     )
     return response.choices[0].text.strip()
-
-
-def predict_large_language_model_sample(
-    project_id: str,
-    model_name: str,
-    temperature: float,
-    max_decode_steps: int,
-    top_p: float,
-    top_k: int,
-    content: str,
-    location: str = "us-central1",
-    tuned_model_name: str = "",
-):
-    response = openai.Completion.create(
-        model="gpt-3.5-turbo-instruct",
-        prompt=content,
-        temperature=temperature,
-        max_tokens=max_decode_steps,
-        top_p=top_p,
-        frequency_penalty=0,
-        presence_penalty=0,
-    )
-    print(f"Response from Model: {response}")
-    response = response.choices[0].text.strip()
-    return response
 
 
 def call_metadata(input):
@@ -367,39 +292,6 @@ def get_data_quality_rules(metadata_description):
     return rules.split(" ")
 
 
-# Function to send SAS code to OpenAI API and return Spark code
-def convert_sas_to_spark(sas_code):
-    prompt = (
-        f"Convert the following SAS code to Spark code: \n\n{sas_code}\n\n Spark code:"
-    )
-    response = predict_large_language_model_sample(
-        "rational-photon-262214",
-        "text-bison@001",
-        0.3,
-        1000,
-        0.8,
-        40,
-        prompt,
-    )
-    spark_code = response.choices[0].text.strip()
-    return spark_code
-
-
-# Function to explain the code using OpenAI API
-def explain_code(code):
-    prompt = f"Explain the following code in simple terms: \n\n{code}\n\nExplanation:"
-    response = predict_large_language_model_sample(
-        "rational-photon-262214",
-        "text-bison@001",
-        0.3,
-        1000,
-        0.8,
-        40,
-        prompt,
-    )
-    explanation = response.choices[0].text.strip()
-    return explanation
-
 
 def get_data_descriptions(metadata_description):
     prompt = f"Given the column description: '{metadata_description}', generate a two sentence summary of the description of the column \n\n"
@@ -513,32 +405,3 @@ def get_data_quality_rules3(metadata_description):
     )
     return rules
 
-
-def code_description_edh(user_code, system_msg):
-    user_msg = f"Provide an in-depth confluence style documentation analysis of the below code: \n\n{user_code}"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": user_msg},
-        ],
-    )
-
-    assistant_msg = response["choices"][0]["message"]["content"]
-
-    return assistant_msg
-
-
-def code_documentation_edh(user_code, system_msg):
-    user_msg = f"Add appropriate comments and documentation to the below code to increase readability and make the code more understandable: \n\n{user_code}"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": user_msg},
-        ],
-    )
-
-    assistant_msg = response["choices"][0]["message"]["content"]
-
-    return assistant_msg
