@@ -24,9 +24,6 @@ import io
 import time
 import os
 
-# Replace with your OpenAI API key
-openai.api_key = "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"
-
 
 def local_css(file_name):
     with open(file_name) as f:
